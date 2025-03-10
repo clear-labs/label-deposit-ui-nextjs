@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useWallet, useConnection } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { Connection, LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js'
+import { LAMPORTS_PER_SOL, VersionedTransaction } from '@solana/web3.js'
 import { toast } from 'sonner'
 import type { ClearLabel } from '@/types/clear-label'
 import type { RestakingApiResponse } from '@/types/restaking-api'
@@ -18,52 +18,126 @@ interface RestakingContainerProps {
 
 type RestakingStatus = 'idle' | 'restaking' | 'success' | 'error'
 
-const CLEAR_API_URL = process.env.NEXT_PUBLIC_CLEAR_API_URL
+const CLEAR_API_URL = process.env.NEXT_PUBLIC_CLEAR_API_URL || 'https://clearsol.network/api'
 
 export function RestakingContainer({ label }: RestakingContainerProps) {
   const { publicKey, signTransaction } = useWallet()
   const { connection } = useConnection()
-  const [amount, setAmount] = useState(0)
+  const [amountString, setAmountString] = useState('')
   const [status, setStatus] = useState<RestakingStatus>('idle')
   const [error, setError] = useState<string>()
   const [expectedBitAmount, setExpectedBitAmount] = useState<string>()
+  const [balance, setBalance] = useState<number>()
   const [isMounted, setIsMounted] = useState(false)
 
+  const amount = parseFloat(amountString) || 0
 
-  const getBal = async () => {
-    if (!publicKey) return
-    let _balance = await SOLANA_CONNECTION.getBalance(publicKey!)
-    setBal(_balance / LAMPORTS_PER_SOL)
-  }
+  const getBal = useCallback(async () => {
+    if (!publicKey || !connection) return
+    try {
+      const _balance = await connection.getBalance(publicKey)
+      setBalance(_balance / LAMPORTS_PER_SOL)
+    } catch (err) {
+      console.error("Failed to fetch balance:", err)
+    }
+  }, [publicKey, connection])
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
   useEffect(() => {
     if (!isMounted) return
     getBal()
-  }, [publicKey])
+  }, [isMounted, getBal])
 
-  const SOLANA_CONNECTION = new Connection(process.env.NEXT_PUBLIC_RPC_URL!)
-  const [balance, setBal] = useState<any>()
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+
+    if (value === '.') {
+      setAmountString('0.')
+      return
+    }
+
+    if (value === '' || /^\d*\.?\d{0,9}$/.test(value)) {
+      setAmountString(value)
+
+      if (e.target.matches(':focus') === false) {
+        normalizeAmount(value)
+      }
+    }
+  }
+
+  const normalizeAmount = (value: string) => {
+    if (value === '') return
+
+    const num = parseFloat(value)
+    if (!isNaN(num)) {
+      if (value.includes('.')) {
+        const [whole, decimal] = value.split('.')
+        setAmountString(`${parseInt(whole, 10)}.${decimal}`)
+      } else {
+        setAmountString(`${parseInt(value, 10)}`)
+      }
+    }
+  }
+
+  const handleBlur = () => {
+    normalizeAmount(amountString)
+  }
 
   const handleRestake = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!publicKey || !label || !signTransaction || !CLEAR_API_URL) {
-      toast.error('Missing configuration or wallet not connected')
+
+    // Log values to help debug
+    console.log({
+      publicKey: publicKey?.toString(),
+      label,
+      signTransaction: !!signTransaction,
+      connection: !!connection,
+      CLEAR_API_URL
+    })
+
+    // Check each condition separately to provide more specific error messages
+    if (!publicKey) {
+      toast.error('Wallet not connected')
+      return
+    }
+
+    if (!label) {
+      toast.error('Label configuration missing')
+      return
+    }
+
+    if (!signTransaction) {
+      toast.error('Wallet does not support signing')
+      return
+    }
+
+    if (!CLEAR_API_URL) {
+      toast.error('API URL not configured')
+      return
+    }
+
+    if (!connection) {
+      toast.error('Connection not established')
+      return
+    }
+
+    if (amount <= 0) {
+      toast.error('Please enter a valid amount')
       return
     }
 
     setStatus('restaking')
     try {
-
       const lamports = amount * LAMPORTS_PER_SOL
       const res = await fetch(`${CLEAR_API_URL}/deposit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userPublicKey: publicKey.toString(),
-          binAddress: label.publicKey,
+          binAddress: label.publicKey.toString(), // Ensure this is a string
           lamports: lamports.toString(),
         })
       })
@@ -99,11 +173,12 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
         signature: txid
       })
 
-
       setStatus('success')
       toast.success('Restake successful', {
         description: `Transaction: ${txid}`
       })
+
+      getBal()
     } catch (err) {
       console.error('Restake failed:', err)
       setStatus('error')
@@ -115,10 +190,17 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
   }
 
   const resetFlow = () => {
-    setAmount(0)
+    setAmountString('')
     setStatus('idle')
     setError(undefined)
     setExpectedBitAmount(undefined)
+  }
+
+  const handleSetMaxAmount = () => {
+    if (balance) {
+      const maxAmount = Math.max(0, balance - 0.01)
+      setAmountString(maxAmount.toFixed(9).replace(/\.?0+$/, ''))
+    }
   }
 
   if (!publicKey) {
@@ -131,30 +213,37 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
   }
 
   return (
-
     <Card>
       <CardContent>
         <form onSubmit={handleRestake} className="space-y-6">
-
           <div className="flex items-center gap-3 mt-6">
-            <img src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+            <img
+              src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
               alt="SOL"
               className="w-10 h-10 rounded-full"
             />
             <div>
               <h2 className="font-semibold text-lg">Solana</h2>
-              {balance && <p className="text-sm text-muted-foreground">Balance: {balance.toFixed(4)} SOL</p>}
+              {balance !== undefined && (
+                <p className="text-sm text-muted-foreground">
+                  Balance: {balance.toFixed(4)} SOL
+                </p>
+              )}
             </div>
           </div>
+
           <div className="gap-2">
             <div className="relative flex items-center justify-end">
               <Input
                 type="text"
+                inputMode="decimal"
                 autoComplete="off"
-                value={amount || ''}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                value={amountString}
+                onChange={handleAmountChange}
+                onBlur={handleBlur}
                 className="text-4xl h-20 font-bold"
                 placeholder="0.0"
+                aria-label="SOL amount to restake"
               />
               <span className="ml-2 right-3 text-2xl text-muted-foreground">
                 SOL
@@ -164,7 +253,8 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
               type="button"
               variant="outline"
               className="w-16 text-[10px] ml-auto block mt-2"
-              onClick={() => setAmount(balance)}
+              onClick={handleSetMaxAmount}
+              disabled={!balance}
             >
               MAX
             </Button>
@@ -173,11 +263,10 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
           <Button
             type="submit"
             className="w-full"
-            disabled={!amount || amount <= 0 || status === 'restaking'}
+            disabled={amount <= 0 || status === 'restaking' || !balance}
           >
             {status === 'restaking' ? 'Restaking...' : 'Restake'}
           </Button>
-
         </form>
 
         <RestakingConfirmation
@@ -188,9 +277,7 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
           expectedBitAmount={expectedBitAmount}
           onClose={resetFlow}
         />
-
       </CardContent>
     </Card>
-
   )
-} 
+}

@@ -9,8 +9,8 @@ import { Suspense } from "react"
 // Server-side data fetching
 async function getLabelData(): Promise<ClearLabel | undefined> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_CLEAR_API_URL
-    const labelAddress = process.env.NEXT_PUBLIC_LABEL_ADDRESS
+    const apiUrl = process.env.NEXT_PUBLIC_CLEAR_API_URL || 'https://clearsol.network/api'
+    const labelAddress = process.env.NEXT_PUBLIC_BIN_PDA
     const network = process.env.NEXT_PUBLIC_NETWORK || 'mainnet'
 
     if (!apiUrl || !labelAddress) {

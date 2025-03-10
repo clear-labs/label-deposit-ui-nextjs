@@ -13,8 +13,8 @@ const fetcher = (url: string) => fetch(url).then(res => res.json())
  */
 export function useLabel(initialData?: ClearLabel) {
   const network = process.env.NEXT_PUBLIC_NETWORK || 'mainnet'
-  const labelAddress = process.env.NEXT_PUBLIC_LABEL_ADDRESS
-  const apiUrl = process.env.NEXT_PUBLIC_CLEAR_API_URL
+  const labelAddress = process.env.NEXT_PUBLIC_BIN_PDA
+  const apiUrl = process.env.NEXT_PUBLIC_CLEAR_API_URL || 'https://api.clearsol.network'
 
   const { data, error, isLoading } = useSWR<ClearLabel>(
     labelAddress && apiUrl ? `${apiUrl}/label/${network}/${labelAddress}` : null,
