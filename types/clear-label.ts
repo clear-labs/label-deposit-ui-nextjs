@@ -46,7 +46,8 @@ export interface ClearLabel {
   // removalRequestCount: Base58
   // lastRemovalResetEpoch: Epoch
   // lastEpochValues: LastEpochValues
-  publicKey: string | PublicKey
+  // publicKey: string | PublicKey
+  binAddress: string
   // restakedBalance: string
   // lstBalance: string
   // bitSupply: string

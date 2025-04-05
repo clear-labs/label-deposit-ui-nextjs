@@ -18,8 +18,9 @@ async function getLabelData(): Promise<ClearLabel | undefined> {
     }
 
     const res = await fetch(`${apiUrl}/label/${network}/${labelAddress}`, {
-      next: { revalidate: 3600 } // Cache for 1 hour
+      next: { revalidate: 600 } // Cache for 1 hour
     })
+    console.log(res)
 
     if (!res.ok) return
     return await res.json()

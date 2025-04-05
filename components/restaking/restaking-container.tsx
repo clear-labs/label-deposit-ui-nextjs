@@ -130,14 +130,23 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
     }
 
     setStatus('restaking')
+
     try {
       const lamports = amount * LAMPORTS_PER_SOL
+      console.log('restaking!')
+      console.log(label)
+      console.table({
+        publicKey: publicKey?.toString(),
+        binAddress: label.binAddress.toString(),
+        amount: amount,
+        lamports: lamports.toString(),
+      })
       const res = await fetch(`${CLEAR_API_URL}/deposit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userPublicKey: publicKey.toString(),
-          binAddress: label.publicKey.toString(), // Ensure this is a string
+          binAddress: label.binAddress.toString(), // Ensure this is a string
           lamports: lamports.toString(),
         })
       })
