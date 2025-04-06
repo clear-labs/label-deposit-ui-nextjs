@@ -18,7 +18,7 @@ interface RestakingContainerProps {
 
 type RestakingStatus = 'idle' | 'restaking' | 'success' | 'error'
 
-const CLEAR_API_URL = process.env.NEXT_PUBLIC_CLEAR_API_URL || 'https://clearsol.network/api'
+const CLEAR_API_URL = process.env.NEXT_PUBLIC_CLEAR_API_URL || 'https://www.clearsol.network/api'
 
 export function RestakingContainer({ label }: RestakingContainerProps) {
   const { publicKey, signTransaction } = useWallet()
