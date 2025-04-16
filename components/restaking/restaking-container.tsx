@@ -272,7 +272,7 @@ export function RestakingContainer({ label }: RestakingContainerProps) {
           <Button
             type="submit"
             className="w-full"
-            disabled={amount <= 0 || status === 'restaking' || !balance}
+            disabled={amount <= 0 || status === 'restaking'}
           >
             {status === 'restaking' ? 'Restaking...' : 'Restake'}
           </Button>
